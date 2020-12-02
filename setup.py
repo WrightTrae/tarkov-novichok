@@ -10,7 +10,7 @@ with open(os.path.join(HERE, "README.md")) as fid:
 
 # This call to setup() does all the work
 setup(
-    name="Tarkov-Novichok",
+    name="tarkov-novichok",
     version="0.0.1",
     description="Cheeki breeki",
     long_description=README,

@@ -14,27 +14,32 @@ import cv2
 from PIL import ImageGrab, Image, ImageWin, ImageTk, ImageOps
 
 # Spotify Controls
-from TarkovNovichok import spotifyControl
+from TarkovNovichok import spotifyControl, const
 
 # Path of tesseract executable
-pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = '.\\Tesseract-OCR\\tesseract.exe'
 windowHwnd = win32gui.FindWindow(None, 'EscapeFromTarkov')
+
+status = const.INITIAL_STATUS
 
 root = Tk()
 root.geometry("1220x720")
 root.configure(bg='black')
-root.title('Tarkov Novichok')
+root.title('Tarkov Novi')
 
-def getMapImagePath(argument):
+
+def getImagePath(argument):
     if not argument:
         return None
     switcher = {
-        'reserve': resource_path('reserveMap.jpg'),
-        'customs': resource_path('customs.png'),
-        'factory': resource_path('factory.png'),
-        'interchange': resource_path('interchange.jpg'),
-        'shoreline': resource_path('shoreline.png'),
-        'woods': resource_path('woods.png')
+        'reserve': resource_path('.\\maps\\reserve.jpg'),
+        'customs': resource_path('.\\maps\\customs.png'),
+        'factory': resource_path('.\\maps\\factory.png'),
+        'interchange': resource_path('.\\maps\\interchange.jpg'),
+        'shoreline': resource_path('.\\maps\\shoreline.png'),
+        'woods': resource_path('.\\maps\\woods.png'),
+        'offline': resource_path('.\\maps\\offline.jpg'),
+        'ammo': resource_path('.\\maps\\ammo.png')
     }
     result = re.sub(r'[^A-Za-z]', '', argument)
     result = result.lower()
@@ -47,6 +52,7 @@ def getMapImagePath(argument):
         result = result[1:]
     return switcher.get(result, None)
 
+
 def openMapImage(path):
     im = Image.open(path)
     global currentImage
@@ -58,7 +64,56 @@ def openMapImage(path):
     panel.configure(image=img)
     panel.image = img
 
-def watchForMapName():
+
+def cropCap(screenCap, size):
+    cap = screenCap.crop(size)
+    # cap.show()
+    return cap
+
+
+def parseMapName(cap, windowSize):
+    print('# parseMapName')
+    x = windowSize[0]
+    y = windowSize[1]
+    w = windowSize[2] - x
+    h = windowSize[3] - y
+    cropedCap = cropCap(
+        cap, (w/2.15, h/10.5, w/1.75, h/7))
+    parsedText = pytesseract.image_to_string(
+        cv2.cvtColor(nm.array(cropedCap), cv2.COLOR_BGR2GRAY),
+        lang='eng')
+    print(parsedText)
+    mapPath = getImagePath(parsedText)
+    global currentMapImg
+    if mapPath is not None and mapPath != currentMapImg:
+        openMapImage(mapPath)
+        currentMapImg = mapPath
+
+
+def parseRaidStatus(cap, windowSize):
+    print('# parseRaidStatus')
+    x = windowSize[0]
+    y = windowSize[1]
+    w = windowSize[2] - x
+    h = windowSize[3] - y
+    cropedCap = cropCap(
+        cap,  (w/2.7, 0, w/1.6, h/9.5))
+    parsedText = pytesseract.image_to_string(
+        cv2.cvtColor(nm.array(cropedCap), cv2.COLOR_BGR2GRAY),
+        lang='eng')
+    print(parsedText)
+    parsedText = parsedText.lower()
+
+    global status
+    if 'deploying to location' in parsedText:
+        status = const.IN_RAID
+    elif 'raid ended' in parsedText:
+        status = const.RAID_ENDED
+    elif 'prepare to escape' in parsedText:
+        status = const.RAID_PREPARE
+
+
+def readScreen():
     if windowHwnd:
         tup = win32gui.GetWindowPlacement(windowHwnd)
         minimized = True
@@ -71,71 +126,32 @@ def watchForMapName():
 
         if not minimized:
             windowSize = win32gui.GetWindowRect(windowHwnd)
-            x = windowSize[0]
-            y = windowSize[1]
-            w = windowSize[2] - x
-            h = windowSize[3] - y
-            widthModifier = w/2.45
-            heigthModifier = h/1.17
-            adjustedSize = ((x+widthModifier+50), (y+h/9.83),
-                            (windowSize[2]-widthModifier), (windowSize[3]-heigthModifier))
+            cap = ImageGrab.grab(windowSize)
 
-            # ImageGrab-To capture the screen image in a loop.
-            # Bbox used to capture a specific area.
-            cap = ImageGrab.grab(adjustedSize)
-            # cap.show()
+            # Raid Status
+            parseRaidStatus(cap, windowSize)
 
-            # Converted the image to monochrome for it to be easily
-            # read by the OCR and obtained the output String.
-            parsedText = pytesseract.image_to_string(
-                cv2.cvtColor(nm.array(cap), cv2.COLOR_BGR2GRAY),
-                lang='eng')
-            mapPath = getMapImagePath(parsedText)
-            global currentMapImg
-            if mapPath is not None and mapPath != currentMapImg:
-                openMapImage(mapPath)
-                currentMapImg = mapPath
+            global status
+            if status == const.RAID_PREPARE:
+                # Map Name
+                parseMapName(cap, windowSize)
 
-    root.after(1000, watchForMapName)
-
-def watchForRaidStatus():
-    if windowHwnd:
-        tup = win32gui.GetWindowPlacement(windowHwnd)
-        minimized = True
-        if tup[1] == win32con.SW_SHOWMAXIMIZED:
-            minimized = False
-        elif tup[1] == win32con.SW_SHOWMINIMIZED:
-            minimized = True
-        elif tup[1] == win32con.SW_SHOWNORMAL:
-            minimized = False
-
-        if not minimized:
-            windowSize = win32gui.GetWindowRect(windowHwnd)
-            x = windowSize[0]
-            y = windowSize[1]
-            w = windowSize[2] - x
-            h = windowSize[3] - y
-            widthModifier = w/2.7
-            heigthModifier = h/1.115
-            adjustedSize = ((x+widthModifier), (y),
-                            (windowSize[2]-widthModifier), (windowSize[3]-heigthModifier))
-
-            # ImageGrab-To capture the screen image in a loop.
-            # Bbox used to capture a specific area.
-            cap = ImageGrab.grab(adjustedSize)
-            # cap.show()
-
-            # Converted the image to monochrome for it to be easily
-            # read by the OCR and obtained the output String.
-            parsedText = pytesseract.image_to_string(cap,
-                                                        lang='eng')
-            print(parsedText)
-            parsedText = parsedText.lower()
-            if 'deploying to location' in parsedText:
+            elif status == const.IN_RAID:
                 spotifyControl.pauseSpotify()
-            elif 'raid ended' in parsedText:
+
+            elif status == const.RAID_ENDED:
                 spotifyControl.playSpotify()
-    root.after(4500, watchForRaidStatus)
+                offlinePath = getImagePath('offline')
+                global currentMapImg
+                if offlinePath != currentMapImg:
+                    openMapImage(offlinePath)
+                    currentMapImg = offlinePath
+
+
+def startReadLoop():
+    readScreen()
+    root.after(2000, startReadLoop)
+
 
 def resize_image(event):
     new_width = event.width
@@ -145,14 +161,16 @@ def resize_image(event):
     panel.config(image=photo)
     panel.image = photo  # avoid garbage collection
 
+
 def resource_path(relative_path):
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
-    return os.path.join(os.path.abspath(".\\maps"), relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
 
-currentMapImg = resource_path('offline.jpg')
 
-im = Image.open(resource_path('offline.jpg'))
+currentMapImg = getImagePath('ammo')
+
+im = Image.open(currentMapImg)
 currentImage = im.copy()
 img = ImageTk.PhotoImage(im)
 panel = Label(root, image=img, bg="black")
@@ -160,6 +178,5 @@ panel.image = img
 panel.bind('<Configure>', resize_image)
 panel.pack(fill="both", expand="yes")
 
-root.after(1000, watchForMapName)
-root.after(4500, watchForRaidStatus)
+root.after(1000, startReadLoop)
 root.mainloop()

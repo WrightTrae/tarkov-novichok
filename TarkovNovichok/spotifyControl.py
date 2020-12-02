@@ -1,16 +1,23 @@
 import sys
+import os
 import spotipy
 import spotipy.util as util
 from spotipy.oauth2 import SpotifyOAuth
 import socket
-from decouple import config
+import configparser
+from importlib import resources
 
-auth = ''
-client_credentials_manager = SpotifyOAuth(client_id=config('CLIENT_ID'),
-                                          client_secret=config(
-                                              'CLIENT_SECRET'),
-                                          redirect_uri=config('REDIRECT_URL'),
+cfg = configparser.ConfigParser()
+cfg.read('config.cfg')
+clientId = cfg.get('spotifyControl', 'CLIENT_ID')
+clientSecret = cfg.get('spotifyControl', 'CLIENT_SECRET')
+redirectUrl = cfg.get('spotifyControl', 'REDIRECT_URL')
+
+client_credentials_manager = SpotifyOAuth(client_id=clientId,
+                                          client_secret=clientSecret,
+                                          redirect_uri=redirectUrl,
                                           scope="user-read-playback-state,user-modify-playback-state")
+auth = ''
 
 
 def playSpotify():

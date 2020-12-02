@@ -4,4 +4,6 @@ __pycache__/
 .cache
 
 .env
-TarkovNovichok/config.txt
+config.cfg
+
+cli.spec
