@@ -1,5 +1,6 @@
 dist/
 build/
+Tesseract-OCR/
 __pycache__/
 .cache
 

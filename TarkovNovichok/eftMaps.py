@@ -141,7 +141,7 @@ def readScreen():
 
             elif status == const.RAID_ENDED:
                 spotifyControl.playSpotify()
-                offlinePath = getImagePath('offline')
+                offlinePath = getImagePath('ammo')
                 global currentMapImg
                 if offlinePath != currentMapImg:
                     openMapImage(offlinePath)
@@ -149,7 +149,13 @@ def readScreen():
 
 
 def startReadLoop():
-    readScreen()
+    try:
+        readScreen()
+    except:
+        global windowHwnd
+        windowHwnd = win32gui.FindWindow(None, 'EscapeFromTarkov')
+        print('startReadLoop error: Attempting to find \'EscapeFromTarkov\' window')
+
     root.after(2000, startReadLoop)
 
 
